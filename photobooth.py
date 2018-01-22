@@ -8,6 +8,7 @@ import psutil
 import RPi.GPIO as GPIO
 import picamera
 
+from threading import Thread
 import pygame
 
 L_BUTTON_PIN = 23
@@ -40,16 +41,16 @@ def kill(pname):
         if proc.name() == pname:
             proc.terminate()
 
-def displayImage(screen, image):
-    image = pygame.image.load(image)
+def displayImage(imageFile):
+    image = pygame.image.load(imageFile)
     screen.blit(image, image.get_rect())
     pygame.display.flip()
 
-def slideshow(screen):
+def slideshow():
     while (slideshowRunning):
         for f in os.listdir(IMG_FOLDER):
-            displayImage(screen, f)
-            timer.sleep(1)
+            displayImage(os.path.join(IMG_FOLDER, f))
+            time.sleep(1)
 
 logging.basicConfig(level=logging.DEBUG)
 if not os.path.exists(IMG_FOLDER):
@@ -57,7 +58,8 @@ if not os.path.exists(IMG_FOLDER):
 
 pygame.init()
 disp_info = pygame.display.Info
-screen = pygame.display.set_mode((disp_info.current_w, disp_info.current_h))
+size = (pygame.display.Info().current_w, pygame.display.Info().current_h)
+screen = pygame.display.set_mode(size)
 slideshowRunning = True
 t = Thread(target=slideshow)
 t.start()
