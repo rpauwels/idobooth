@@ -4,11 +4,8 @@ import os
 import logging
 import subprocess
 import time
-import psutil
 import RPi.GPIO as GPIO
 import picamera
-
-from threading import Thread
 import pygame
 
 L_BUTTON_PIN = 23
@@ -18,81 +15,83 @@ IMG_FOLDER = "foto"
 GPIO.setmode(GPIO.BCM)
 GPIO.setup(L_BUTTON_PIN, GPIO.IN, pull_up_down=GPIO.PUD_UP)
 GPIO.setup(R_BUTTON_PIN, GPIO.IN, pull_up_down=GPIO.PUD_UP)
+image_cache = {}
+slideshow_running = True
 
 def takePicture(camera, countdown, filename):
     camera.start_preview()
     while countdown > 0:
-        countdown -= 1
         camera.annotate_text = str(countdown)
+        countdown -= 1
         time.sleep(1)
     camera.annotate_text = ''
     for i in xrange(50,100,5):
         camera.brightness = i
         time.sleep(0.05)
-    logging.info("Capturing")
+    logging.info("Capturing " + filename)
     path = os.path.join(IMG_FOLDER, filename)
-    camera.capture(path)
-    camera.stop_preview()
-    displayImage(path)
     camera.brightness = 50
+    camera.capture(path)
+    displayImage(path)
+    camera.stop_preview()
+    time.sleep(5)
 
-def kill(pname):
-    for proc in psutil.process_iter():
-        if proc.name() == pname:
-            proc.terminate()
+def displayImage(file):
+    screen.fill((0,0,0))
+    if not file in image_cache:
+        logging.info("Loading " + file)
+        image_cache[file] = pygame.image.load(file)
+    image = image_cache[file]
+    logging.info("Loaded " + file + " from cache")
+    screen.blit(image, (0, 0))
 
-def displayImage(imageFile):
-    image = pygame.image.load(imageFile)
-    screen.blit(image, image.get_rect())
-    pygame.display.flip()
-
-def renderText(text):
+def renderText(text, x, y, right):
     font = pygame.font.SysFont("monospace", 72)
     rendered_text = font.render(text, True, (255, 255, 255))
-
-    # Display in the center of the screen
     text_rect = rendered_text.get_rect()
-    text_rect.centerx = screen.get_rect().centerx
-    text_rect.centery = screen.get_rect().centery
-    screen.blit(text,textrect)
-    pygame.display.flip() # update the display
+    if right:
+        text_rect.right = x
+    else:
+        text_rect.left = x
+    text_rect.top = y
+    screen.blit(rendered_text, text_rect)
+                    
+def leftButton(channel):
+    logging.info("Left button pressed")
 
-def slideshow():
-    while (slideshowRunning):
-        for f in os.listdir(IMG_FOLDER):
-            displayImage(os.path.join(IMG_FOLDER, f))
-            time.sleep(1)
+def rightButton(channel):
+    logging.info("Right button pressed " + slideshow_running)
+    slideshow_running = False
+    with picamera.PiCamera() as camera:
+        camera.annotate_text_size = 160
+        camera.vflip = True
+        prefix = time.strftime('%y%m%d%H%M%S')
+        takePicture(camera, 8, prefix + "-1.jpg")
+        takePicture(camera, 5, prefix + "-2.jpg")
+        takePicture(camera, 5, prefix + "-3.jpg")
+    slideshow_running = True
+
+GPIO.add_event_detect(R_BUTTON_PIN, GPIO.FALLING, callback=rightButton, bouncetime=1000)
+GPIO.add_event_detect(L_BUTTON_PIN, GPIO.FALLING, callback=leftButton, bouncetime=1000)
 
 logging.basicConfig(level=logging.DEBUG)
 if not os.path.exists(IMG_FOLDER):
     os.mkdir(IMG_FOLDER)
 
 pygame.init()
-disp_info = pygame.display.Info
+pygame.mouse.set_visible(0)
 size = (pygame.display.Info().current_w, pygame.display.Info().current_h)
-screen = pygame.display.set_mode(size)
-slideshowRunning = True
-t = Thread(target=slideshow)
-t.start()
+screen = pygame.display.set_mode(size, pygame.FULLSCREEN)
 
-with picamera.PiCamera() as camera:
-    camera.annotate_text_size = 160
-    camera.vflip = True
-    logging.info("Running fbi")
-    #slideshow = subprocess.Popen(['fbi'] +
-    #    [os.path.join(IMG_FOLDER, f) for f in os.listdir(IMG_FOLDER)])
-    while True:
-        if (GPIO.input(L_BUTTON_PIN) == False):
-            logging.info("Left button pressed")
-        elif (GPIO.input(R_BUTTON_PIN) == False):
-            logging.info("Right button pressed")
-            #kill('fbi')
-            #camera.start_preview()
-            prefix = time.strftime('%y%m%d%H%M%S')
-            slideshowRunning = False
-            takePicture(camera, 8, prefix + "-1.jpg")
-            takePicture(camera, 5, prefix + "-2.jpg")
-            takePicture(camera, 5, prefix + "-3.jpg")
-            #slideshow = subprocess.Popen(['fbi', os.path.join(IMG_FOLDER, "*.jpg")])
-            #camera.stop_preview()
-            slideshowRunning = True
+while True:
+    time.sleep(0.1)
+    if slideshow_running:
+        logging.info("Restarting slideshow")
+        for f in sorted(os.listdir(IMG_FOLDER)):
+            displayImage(os.path.join(IMG_FOLDER, f))
+            renderText("druk op de rechtse knop", 0, 0, True)
+            pygame.display.flip()
+            time.sleep(1)
+            if not slideshow_running:
+                logging.info("Slideshow stopped")
+                break
