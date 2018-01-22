@@ -3,7 +3,7 @@ Description=PiCamera Photobooth
 After=network.target
 
 [Service]
-WorkingDirectory=/root/photos
+WorkingDirectory=/root
 ExecStart=/usr/local/bin/photobooth.py
 Restart=on-failure
 RestartSec=3
