@@ -46,6 +46,17 @@ def displayImage(imageFile):
     screen.blit(image, image.get_rect())
     pygame.display.flip()
 
+def renderText(text):
+    font = pygame.font.SysFont("monospace", 72)
+    rendered_text = font.render(text, True, (255, 255, 255))
+
+    # Display in the center of the screen
+    text_rect = rendered_text.get_rect()
+    text_rect.centerx = screen.get_rect().centerx
+    text_rect.centery = screen.get_rect().centery
+    screen.blit(text,textrect)
+    pygame.display.flip() # update the display
+
 def slideshow():
     while (slideshowRunning):
         for f in os.listdir(IMG_FOLDER):
