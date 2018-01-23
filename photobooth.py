@@ -59,6 +59,11 @@ def slideshow():
     for dir in sorted(os.listdir(IMG_FOLDER)):
         for i in range(0,3):
             for file in sorted(os.listdir(os.path.join(IMG_FOLDER, dir))):
+                if not slideshow_running:
+                    logging.info("Slideshow stopped")
+                    screen.fill((0,0,0))
+                    pygame.display.flip()
+                    return
                 renderImage(os.path.join(IMG_FOLDER, dir, file))
                 renderText("1. kies je props", 700, 0, False)
                 renderText("2. druk op de zwarte knop voor foto's", 700, 30, False)
@@ -66,11 +71,6 @@ def slideshow():
                 renderText("3. smile!", 700, 60, False)
                 pygame.display.flip()
                 time.sleep(0.5)
-                if not slideshow_running:
-                    logging.info("Slideshow stopped")
-                    screen.fill((0,0,0))
-                    pygame.display.flip()
-                    return
             time.sleep(0.5)
                     
 def leftButton(channel):
@@ -85,9 +85,9 @@ def rightButton(channel):
     with picamera.PiCamera() as camera:
         camera.annotate_text_size = 160
         camera.vflip = True
-        takePicture(camera, 8, dir, os.path.join(dir, "1.jpg"))
-        takePicture(camera, 5, dir, os.path.join(dir, "2.jpg"))
-        takePicture(camera, 5, dir, os.path.join(dir, "3.jpg"))
+        takePicture(camera, 8, os.path.join(dir, "1.jpg"))
+        takePicture(camera, 5, os.path.join(dir, "2.jpg"))
+        takePicture(camera, 5, os.path.join(dir, "3.jpg"))
     slideshow_running = True
 
 GPIO.add_event_detect(R_BUTTON_PIN, GPIO.FALLING, callback=rightButton, bouncetime=500)
