@@ -30,20 +30,18 @@ def takePicture(camera, countdown, dir, index):
         time.sleep(0.05)
     logging.info("Capturing photo {}".format(index))
     path = os.path.join(IMG_FOLDER, dir, "{}.jpg".format(index))
+    camera.stop_preview()
     camera.brightness = 50
     camera.capture(path)
     renderImage(path)
     renderText("Foto {} van 3".format(index), screen.get_rect().centerx, 0, False)
     pygame.display.flip()
-    camera.stop_preview()
     time.sleep(5)
 
 def renderImage(file):
-    #screen.fill((0,0,0))
     if not file in image_cache:
         image_cache[file] = pygame.image.load(file)
-    image = image_cache[file]
-    screen.blit(image, (0, 0))
+    screen.blit(image_cache[file], (0, 0))
 
 def renderText(text, x, y, right):
     font = pygame.font.SysFont("monospace", 72)
@@ -104,11 +102,11 @@ if not os.path.exists(IMG_FOLDER):
     os.mkdir(IMG_FOLDER)
 
 logging.debug("Initializing Pygame")
-pygame.init()
+pygame.display.init()
 logging.debug("Hiding mouse")
 pygame.mouse.set_visible(0)
 size = (pygame.display.Info().current_w, pygame.display.Info().current_h)
-logging.debug("Initializing screen")
+logging.debug("Initializing screen size {} x {}".format(size[0], size[1]))
 screen = pygame.display.set_mode(size)
 
 logging.debug("Starting slideshow")

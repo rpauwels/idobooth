@@ -1,8 +1,10 @@
 [Unit]
 Description=PiCamera Photobooth
-After=network.target
+After=multi-user.target
 
 [Service]
+Type=simple
+User=root
 WorkingDirectory=/root
 ExecStart=/usr/local/bin/photobooth.py
 Restart=on-failure
