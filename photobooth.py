@@ -18,7 +18,7 @@ GPIO.setup(R_BUTTON_PIN, GPIO.IN, pull_up_down=GPIO.PUD_UP)
 image_cache = {}
 slideshow_running = True
 
-def takePicture(camera, countdown, filename):
+def takePicture(camera, countdown, dir, index):
     camera.start_preview()
     while countdown > 0:
         camera.annotate_text = str(countdown)
@@ -28,11 +28,13 @@ def takePicture(camera, countdown, filename):
     for i in xrange(50,100,5):
         camera.brightness = i
         time.sleep(0.05)
-    logging.info("Capturing " + filename)
-    path = os.path.join(IMG_FOLDER, filename)
+    logging.info("Capturing photo {}".format(index))
+    path = os.path.join(IMG_FOLDER, dir, "{}.jpg".format(index))
     camera.brightness = 50
     camera.capture(path)
     renderImage(path)
+    renderText("Foto {} van 3".format(index), screen.get_rect().centerx, 0, False)
+    pygame.display.flip()
     camera.stop_preview()
     time.sleep(5)
 
@@ -66,9 +68,9 @@ def slideshow():
                     return
                 renderImage(os.path.join(IMG_FOLDER, dir, file))
                 renderText("1. kies je props", 700, 0, False)
-                renderText("2. druk op de zwarte knop voor foto's", 700, 30, False)
+                renderText("2. druk op de zwarte knop voor foto's", 700, 50, False)
                 #renderText("   druk op de rode knop voor een filmpje", 700, 30, False)
-                renderText("3. smile!", 700, 60, False)
+                renderText("3. smile!", 700, 100, False)
                 pygame.display.flip()
                 time.sleep(0.5)
             time.sleep(0.5)
@@ -79,16 +81,20 @@ def leftButton(channel):
 def rightButton(channel):
     global slideshow_running
     slideshow_running = False
+    GPIO.remove_event_detect(R_BUTTON_PIN)
+    GPIO.remove_event_detect(L_BUTTON_PIN)
     logging.info("Right button pressed")
     dir = time.strftime('%y%m%d-%H%M%S')
-    os.mkdir(dir)
+    os.mkdir(os.path.join(IMG_FOLDER, dir))
     with picamera.PiCamera() as camera:
         camera.annotate_text_size = 160
         camera.vflip = True
-        takePicture(camera, 8, os.path.join(dir, "1.jpg"))
-        takePicture(camera, 5, os.path.join(dir, "2.jpg"))
-        takePicture(camera, 5, os.path.join(dir, "3.jpg"))
+        takePicture(camera, 8, dir, 1)
+        takePicture(camera, 5, dir, 2)
+        takePicture(camera, 5, dir, 3)
     slideshow_running = True
+    GPIO.add_event_detect(R_BUTTON_PIN, GPIO.FALLING, callback=rightButton, bouncetime=500)
+    GPIO.add_event_detect(L_BUTTON_PIN, GPIO.FALLING, callback=leftButton, bouncetime=500)
 
 GPIO.add_event_detect(R_BUTTON_PIN, GPIO.FALLING, callback=rightButton, bouncetime=500)
 GPIO.add_event_detect(L_BUTTON_PIN, GPIO.FALLING, callback=leftButton, bouncetime=500)
@@ -97,13 +103,20 @@ logging.basicConfig(level=logging.DEBUG)
 if not os.path.exists(IMG_FOLDER):
     os.mkdir(IMG_FOLDER)
 
+logging.debug("Initializing Pygame")
 pygame.init()
+logging.debug("Hiding mouse")
 pygame.mouse.set_visible(0)
 size = (pygame.display.Info().current_w, pygame.display.Info().current_h)
-screen = pygame.display.set_mode(size, pygame.FULLSCREEN)
+logging.debug("Initializing screen")
+screen = pygame.display.set_mode(size)
 
-while True:
-    time.sleep(0.1)
-    if slideshow_running:
-        slideshow()
-
+logging.debug("Starting slideshow")
+try:
+    while True:
+        time.sleep(0.1)
+        if slideshow_running:
+            slideshow()
+finally:
+    pygame.quit()
+    GPIO.cleanup()
