@@ -6,8 +6,8 @@
 # Required-Stop:     $remote_fs $syslog
 # Default-Start:     2 3 4 5
 # Default-Stop:      0 1 6
-# Short-Description: Runs boothy
-# Description:       Runs boothy photo booth application on Raspberry Pi 2.
+# Short-Description: Runs photobooth
+# Description:       Runs photo booth application on Raspberry Pi 3.
 ### END INIT INFO
 #
 # NOTE: sudo update-rc.d boothyStart.sh defaults (will add this to startup script)
@@ -15,8 +15,8 @@
 #
 
 # Change the next 3 lines to suit where you install your script and what you want to call it
-DIR=/usr/local/bin
-DAEMON=$DIR/photobooth.sh
+DIR=/home/raf/photobooth
+DAEMON=/usr/local/bin/photobooth.py
 DAEMON_NAME=photobooth
 
 # Add any command line options for your daemon here
@@ -33,7 +33,7 @@ PIDFILE=/var/run/$DAEMON_NAME.pid
 
 do_start () {
     log_daemon_msg "Starting system $DAEMON_NAME daemon"
-    start-stop-daemon --start --background --pidfile $PIDFILE --make-pidfile --user $DAEMON_USER --chuid $DAEMON_USER --startas $DAEMON -- $DAEMON_OPTS
+    start-stop-daemon --start --background --pidfile $PIDFILE --make-pidfile --user $DAEMON_USER --chuid $DAEMON_USER --startas $DAEMON -d $DIR -- $DAEMON_OPTS
     log_end_msg $?
 }
 do_stop () {

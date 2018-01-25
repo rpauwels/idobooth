@@ -12,6 +12,10 @@ L_BUTTON_PIN = 23
 R_BUTTON_PIN = 27
 IMG_FOLDER = "foto"
 
+os.putenv('SDL_FBDEV', '/dev/fb0')
+os.putenv('SDL_VIDEODRIVER', 'fbcon') # fbcon, directfb, svgalib, x11
+os.putenv('SDL_NOMOUSE', '1')
+
 GPIO.setmode(GPIO.BCM)
 GPIO.setup(L_BUTTON_PIN, GPIO.IN, pull_up_down=GPIO.PUD_UP)
 GPIO.setup(R_BUTTON_PIN, GPIO.IN, pull_up_down=GPIO.PUD_UP)
@@ -61,7 +65,7 @@ def slideshow():
             for file in sorted(os.listdir(os.path.join(IMG_FOLDER, dir))):
                 if not slideshow_running:
                     logging.info("Slideshow stopped")
-                    screen.fill((0,0,0))
+                    screen.fill((255,255,255))
                     pygame.display.flip()
                     return
                 renderImage(os.path.join(IMG_FOLDER, dir, file))
@@ -70,17 +74,17 @@ def slideshow():
                 #renderText("   druk op de rode knop voor een filmpje", 700, 30, False)
                 renderText("3. smile!", 700, 100, False)
                 pygame.display.flip()
-                time.sleep(0.5)
-            time.sleep(0.5)
+                time.sleep(0.25)
+            time.sleep(0.25)
                     
 def leftButton(channel):
     logging.info("Left button pressed")
 
 def rightButton(channel):
     global slideshow_running
+    if not slideshow_running:
+        return;
     slideshow_running = False
-    GPIO.remove_event_detect(R_BUTTON_PIN)
-    GPIO.remove_event_detect(L_BUTTON_PIN)
     logging.info("Right button pressed")
     dir = time.strftime('%y%m%d-%H%M%S')
     os.mkdir(os.path.join(IMG_FOLDER, dir))
@@ -91,19 +95,16 @@ def rightButton(channel):
         takePicture(camera, 5, dir, 2)
         takePicture(camera, 5, dir, 3)
     slideshow_running = True
-    GPIO.add_event_detect(R_BUTTON_PIN, GPIO.FALLING, callback=rightButton, bouncetime=500)
-    GPIO.add_event_detect(L_BUTTON_PIN, GPIO.FALLING, callback=leftButton, bouncetime=500)
 
-GPIO.add_event_detect(R_BUTTON_PIN, GPIO.FALLING, callback=rightButton, bouncetime=500)
-GPIO.add_event_detect(L_BUTTON_PIN, GPIO.FALLING, callback=leftButton, bouncetime=500)
+GPIO.add_event_detect(R_BUTTON_PIN, GPIO.FALLING, callback=rightButton, bouncetime=2000)
+GPIO.add_event_detect(L_BUTTON_PIN, GPIO.FALLING, callback=leftButton, bouncetime=2000)
 
-logging.basicConfig(level=logging.DEBUG)
+logging.basicConfig(level=logging.DEBUG,filename='photobooth.log',format='%(asctime)s %(message)s')
 if not os.path.exists(IMG_FOLDER):
     os.mkdir(IMG_FOLDER)
 
 logging.debug("Initializing Pygame")
-pygame.display.init()
-logging.debug("Hiding mouse")
+pygame.init()
 pygame.mouse.set_visible(0)
 size = (pygame.display.Info().current_w, pygame.display.Info().current_h)
 logging.debug("Initializing screen size {} x {}".format(size[0], size[1]))
