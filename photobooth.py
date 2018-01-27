@@ -1,6 +1,7 @@
 #!/usr/bin/python
 
 import os
+import sys
 import logging
 import subprocess
 import time
@@ -24,6 +25,7 @@ image_cache = {}
 slideshow_running = True
 
 def takePicture(camera, countdown, dir, index):
+    camera.annotate_text_size = 160
     for count in range(countdown, 0, -1):
         camera.annotate_text = str(count)
         time.sleep(1)
@@ -66,6 +68,7 @@ def slideshow():
     for dir in dirs:
         for i in range(0,2):
             for file in sorted(os.listdir(os.path.join(IMG_FOLDER, dir))):
+                checkEvents()
                 if not slideshow_running:
                     logging.info("Slideshow stopped")
                     return
@@ -98,7 +101,7 @@ def leftButton(channel):
 
 def rightButton(channel):
     global slideshow_running
-    if GPIO.input(channel):
+    if GPIO.input(channel) or not slideshow_running:
         logging.debug("Right button cancelled")
         return;
     logging.info("Right button pressed")
@@ -111,7 +114,6 @@ def rightButton(channel):
         camera.annotate_text = 'foto\'s'
         camera.start_preview()
         time.sleep(2)
-        camera.annotate_text_size = 160
         camera.shutter_speed = camera.exposure_speed
         camera.exposure_mode = 'off'
         gains = camera.awb_gains
@@ -128,6 +130,11 @@ def rightButton(channel):
             pygame.display.flip()
             time.sleep(0.5)
     slideshow_running = True
+
+def checkEvents():
+    for event in pygame.event.get():
+        if event.type in (pygame.QUIT, pygame.KEYDOWN):
+            sys.exit()
 
 GPIO.add_event_detect(R_BUTTON_PIN, GPIO.FALLING, callback=rightButton, bouncetime=2000)
 GPIO.add_event_detect(L_BUTTON_PIN, GPIO.FALLING, callback=leftButton, bouncetime=2000)
@@ -146,6 +153,7 @@ screen = pygame.display.set_mode(size)
 logging.debug("Starting slideshow")
 try:
     while True:
+        checkEvents()
         time.sleep(0.1)
         if slideshow_running:
             slideshow()

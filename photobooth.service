@@ -1,17 +1,14 @@
 [Unit]
-Description=PiCamera Photobooth
+Description=Vero en Raf photobooth
 After=multi-user.target
 
 [Service]
-Type=simple
 User=root
 WorkingDirectory=/home/raf/photobooth
-ExecStart=/usr/bin/python photobooth.py
+ExecStart=/home/raf/photobooth/photobooth.sh
 Restart=on-failure
 RestartSec=3
-StandardInput=tty
-StandardOutput=tty
-TTYPath=/dev/tty1
+#StandardOutput=tty
 
 [Install]
 WantedBy=multi-user.target
