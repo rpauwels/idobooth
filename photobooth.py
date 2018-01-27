@@ -4,6 +4,7 @@ import os
 import logging
 import subprocess
 import time
+import random
 import RPi.GPIO as GPIO
 import picamera
 import pygame
@@ -23,15 +24,15 @@ image_cache = {}
 slideshow_running = True
 
 def takePicture(camera, countdown, dir, index):
-    camera.start_preview()
-    while countdown > 0:
-        camera.annotate_text = str(countdown)
-        countdown -= 1
+    for count in range(countdown, 0, -1):
+        camera.annotate_text = str(count)
         time.sleep(1)
+    screen.fill((255,255,255))
+    pygame.display.flip()
     camera.annotate_text = ''
-    for i in xrange(50,100,5):
+    for i in range(55,95,5):
         camera.brightness = i
-        time.sleep(0.05)
+        time.sleep(0.2/8)
     logging.info("Capturing photo {}".format(index))
     path = os.path.join(IMG_FOLDER, dir, "{}.jpg".format(index))
     camera.stop_preview()
@@ -60,13 +61,13 @@ def renderText(text, x, y, right):
 
 def slideshow():
     global slideshow_running
-    for dir in sorted(os.listdir(IMG_FOLDER)):
-        for i in range(0,3):
+    dirs = os.listdir(IMG_FOLDER)
+    random.shuffle(dirs)
+    for dir in dirs:
+        for i in range(0,2):
             for file in sorted(os.listdir(os.path.join(IMG_FOLDER, dir))):
                 if not slideshow_running:
                     logging.info("Slideshow stopped")
-                    screen.fill((255,255,255))
-                    pygame.display.flip()
                     return
                 renderImage(os.path.join(IMG_FOLDER, dir, file))
                 renderText("1. kies je props", 700, 0, False)
@@ -74,26 +75,58 @@ def slideshow():
                 #renderText("   druk op de rode knop voor een filmpje", 700, 30, False)
                 renderText("3. smile!", 700, 100, False)
                 pygame.display.flip()
-                time.sleep(0.25)
-            time.sleep(0.25)
+                time.sleep(0.5)
+            time.sleep(0.5)
                     
 def leftButton(channel):
     logging.info("Left button pressed")
+    with picamera.PiCamera() as camera:
+        camera.vflip = True
+        camera.start_preview()
+        camera.annotate_text_size = 100
+        camera.annotate_text = 'filmpje'
+        camera.start_preview()
+        time.sleep(2)
+        camera.annotate_text_size = 160
+        for count in range(5, 0, -1):
+            camera.annotate_text = str(count)
+            time.sleep(1)
+        camera.annotate_text = ''
+        camera.start_recording(time.strftime('%y%m%d-%H%M%S') + '.h264')
+        camera.wait_recording(10)
+        camera.stop_recording();
 
 def rightButton(channel):
     global slideshow_running
-    if not slideshow_running:
+    if GPIO.input(channel):
+        logging.debug("Right button cancelled")
         return;
-    slideshow_running = False
     logging.info("Right button pressed")
+    slideshow_running = False
     dir = time.strftime('%y%m%d-%H%M%S')
     os.mkdir(os.path.join(IMG_FOLDER, dir))
     with picamera.PiCamera() as camera:
-        camera.annotate_text_size = 160
         camera.vflip = True
-        takePicture(camera, 8, dir, 1)
+        camera.annotate_text_size = 100
+        camera.annotate_text = 'foto\'s'
+        camera.start_preview()
+        time.sleep(2)
+        camera.annotate_text_size = 160
+        camera.shutter_speed = camera.exposure_speed
+        camera.exposure_mode = 'off'
+        gains = camera.awb_gains
+        camera.awb_mode = 'off'
+        camera.awb_gains = gains
+        takePicture(camera, 5, dir, 1)
+        camera.start_preview()
         takePicture(camera, 5, dir, 2)
+        camera.start_preview()
         takePicture(camera, 5, dir, 3)
+    for i in range(0,5):
+        for file in sorted(os.listdir(os.path.join(IMG_FOLDER, dir))):
+            renderImage(os.path.join(IMG_FOLDER, dir, file))
+            pygame.display.flip()
+            time.sleep(0.5)
     slideshow_running = True
 
 GPIO.add_event_detect(R_BUTTON_PIN, GPIO.FALLING, callback=rightButton, bouncetime=2000)
