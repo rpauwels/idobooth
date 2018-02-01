@@ -27,6 +27,11 @@ TITLE_FONT = pygame.font.Font("Economica.otf", 60)
 FG_COLOR = (255, 255, 255)
 SUBTITLE_COLOR = (221, 221, 221)
 
+VIDEO_RESOLUTION = (640, 480)
+PHOTO_RESOLUTION = (1280,1024)
+PHOTO_PREVIEW_RESOLUTION = (1280,1024)
+PHOTO_ZOOM = (0.1, 0.05, 0.9, 0.9)
+
 GPIO.setmode(GPIO.BCM)
 GPIO.setup(L_BUTTON_PIN, GPIO.IN, pull_up_down=GPIO.PUD_UP)
 GPIO.setup(R_BUTTON_PIN, GPIO.IN, pull_up_down=GPIO.PUD_UP)
@@ -48,12 +53,12 @@ def renderOSD():
     screen.blit(title, title_rect)
     screen.blit(date, date_rect)
     
-    guestbook_text = date_font.render("gastenboekvideo", True, FG_COLOR)
+    guestbook_text = date_font.render("slow-motionvideo", True, FG_COLOR)
     guestbook_text_rect = guestbook_text.get_rect()
     up_red = pygame.image.load('arrow-red.png')
     up_red_rect = up_red.get_rect()
     up_red_rect.centerx = guestbook_text_rect.centerx
-    video = pygame.image.load('video-camera.png')
+    video = pygame.image.load('snail-64.png')
     video_rect = video.get_rect()
     video_rect.centerx = guestbook_text_rect.centerx
     video_rect.top = up_red_rect.bottom
@@ -101,8 +106,8 @@ def drawInstructions(icons):
 
 def renderVideoInstructions():
     icons = OrderedDict()
-    icons['mask.png'] = ['kies je props']
-    icons['video-camera.png'] = ['je krijgt 5 seconden!']
+    icons['video-camera.png'] = ['neem 5 seconden op']
+    icons['snail.png'] = ['je wordt gefilmd', 'in slow-motion']
     drawInstructions(icons)
 
 def renderPhotoInstructions():
@@ -118,8 +123,8 @@ def renderPhotoFinished():
     title_rect.center = (size[0] / 2, 50)
     screen.blit(title, title_rect)
     icons = OrderedDict()
-    icons['giftbox.png'] = ['je krijgt het', 'resultaat binnenkort']
     icons['repeat.png'] = ['nog eens?', 'neem er zoveel je wil']
+    icons['giftbox.png'] = ['je krijgt het', 'resultaat binnenkort']
     drawInstructions(icons)
 
 def renderVideoFinished():
@@ -128,16 +133,18 @@ def renderVideoFinished():
     title_rect.center = (size[0] / 2, 50)
     screen.blit(title, title_rect)
     icons = OrderedDict()
-    icons['giftbox.png'] = ['je krijgt het', 'resultaat binnenkort']
+    icons['giftbox.png'] = ['hier is het resultaat', '(je krijgt dit binnenkort)']
+    icons['repeat.png'] = ['nog eens?', 'neem er zoveel je wil']
     drawInstructions(icons)
 
 def takePicture(camera, countdown, dir, index):
     camera.annotate_text_size = 160
     camera.start_preview()
+    camera.preview.resolution = PHOTO_PREVIEW_RESOLUTION
     for count in range(countdown, 0, -1):
         camera.annotate_text = str(count)
         time.sleep(1)
-    screen.fill((255,255,255))
+    screen.fill((255, 255, 255))
     pygame.display.flip()
     camera.annotate_text = ''
     for i in range(55,95,5):
@@ -159,54 +166,64 @@ def renderImage(file):
 
 def slideshow():
     global slideshow_running
-    dirs = os.listdir(IMG_FOLDER)
-    random.shuffle(dirs)
-    for dir in dirs:
-        for i in range(0,2):
-            for file in sorted(os.listdir(os.path.join(IMG_FOLDER, dir))):
-                checkEvents()
-                if not slideshow_running:
-                    logging.info("Slideshow stopped")
-                    return
-                renderImage(os.path.join(IMG_FOLDER, dir, file))
-                renderOSD()
-                pygame.display.flip()
+    fnames = os.listdir(IMG_FOLDER)
+    random.shuffle(fnames)
+    for fname in fnames:
+        group_path = os.path.join(IMG_FOLDER, fname)
+        if os.path.isdir(group_path):
+            for i in range(0,2):
+                for file in sorted(os.listdir(group_path)):
+                    checkEvents()
+                    if not slideshow_running:
+                        logging.info("Slideshow stopped")
+                        return
+                    renderImage(os.path.join(group_path, file))
+                    renderOSD()
+                    pygame.display.flip()
+                    time.sleep(0.5)
                 time.sleep(0.5)
-            time.sleep(0.5)
-                    
+        elif os.path.isfile(group_path):
+            screen.fill((0, 0, 0))
+            renderOSD()
+            pygame.display.flip()
+            subprocess.call(['omxplayer','--no-osd','--no-keys','--win','350,327,1280,1024',group_path])
+            
 def leftButton(channel):
     global slideshow_running
     if GPIO.input(channel) or not slideshow_running:
         logging.debug("Left button cancelled")
         return;
+    screen.fill((0, 0, 0))
     renderVideoInstructions()
     pygame.display.flip()
     logging.info("Left button pressed")
     slideshow_running = False
-    file_name = time.strftime('%y%m%d-%H%M%S')
-    h264_name = file_name + '.h264'
-    mp4_name = file_name + '.mp4'
-    with picamera.PiCamera() as camera:
-        camera.resolution = (640, 480)
-        camera.framerate = 90
+    file_name = os.path.join(IMG_FOLDER, time.strftime('%y%m%d-%H%M%S'))
+    h264_file = file_name + '.h264'
+    mp4_file = file_name + '.mp4'
+    with picamera.PiCamera(resolution=VIDEO_RESOLUTION,framerate=90) as camera:
         camera.vflip = True
         time.sleep(5)
         camera.start_preview()
+        screen.fill((0, 0, 0))
         camera.annotate_text_size = 160
-        for count in range(5, 0, -1):
+        for count in range(3, 0, -1):
             camera.annotate_text = str(count)
             time.sleep(1)
         camera.annotate_text = ''
-        camera.start_recording(h264_name)
+        camera.start_recording(h264_file)
         camera.wait_recording(5)
         camera.stop_recording()
         renderVideoFinished()
         pygame.display.flip()
         camera.stop_preview()
-    subprocess.call(['MP4Box','-fps','30','-add',h264_name,mp4_name])
-    time.sleep(2)
-    for i in range(0,3):
-        subprocess.call(['omxplayer','-b','--no-osd','--no-keys',mp4_name])
+    subprocess.call(['MP4Box','-fps','30','-add',h264_file,mp4_file])
+    os.remove(h264_file)
+    time.sleep(4)
+    screen.fill((0, 0, 0))
+    pygame.display.flip()
+    for i in range(0,2):
+        subprocess.call(['omxplayer','-b','--no-osd','--no-keys',mp4_file])
     slideshow_running = True
 
 def rightButton(channel):
@@ -214,17 +231,17 @@ def rightButton(channel):
     if GPIO.input(channel) or not slideshow_running:
         logging.debug("Right button cancelled")
         return;
+    slideshow_running = False
+    screen.fill((0, 0, 0))
     renderPhotoInstructions()
     pygame.display.flip()
     logging.info("Right button pressed")
-    slideshow_running = False
-    dir = time.strftime('%y%m%d-%H%M%S') + '-f'
+    dir = time.strftime('%y%m%d-%H%M%S')
     os.mkdir(os.path.join(IMG_FOLDER, dir))
-    with picamera.PiCamera() as camera:
+    with picamera.PiCamera(resolution=PHOTO_RESOLUTION) as camera:
+        camera.zoom = PHOTO_ZOOM
         camera.vflip = True
-        camera.annotate_text_size = 100
-        camera.annotate_text = 'foto\'s'
-        time.sleep(2)
+        time.sleep(5)
         camera.shutter_speed = camera.exposure_speed
         camera.exposure_mode = 'off'
         gains = camera.awb_gains
