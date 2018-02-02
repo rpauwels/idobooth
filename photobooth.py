@@ -15,7 +15,6 @@ pygame.init()
 pygame.mouse.set_visible(0)
 size = (pygame.display.Info().current_w, pygame.display.Info().current_h)
 screen = pygame.display.set_mode(size)
-image_cache = {}
 slideshow_running = True
 
 logging.basicConfig(level=logging.DEBUG,filename='photobooth.log',format='%(asctime)s %(message)s')
@@ -114,7 +113,7 @@ def renderPhotoInstructions():
     icons = OrderedDict()
     icons['mask.png'] = ['kies je props']
     icons['pose.png'] = ['sta klaar']
-    icons['photo-camera.png'] = ['smile']
+    icons['photo-camera.png'] = ['neem 3 foto\'s']
     drawInstructions(icons)
 
 def renderPhotoFinished():
@@ -137,7 +136,7 @@ def renderVideoFinished():
     icons['repeat.png'] = ['nog eens?', 'neem er zoveel je wil']
     drawInstructions(icons)
 
-def takePicture(camera, countdown, dir, index):
+def takePicture(camera, images, countdown, dir, index):
     camera.annotate_text_size = 160
     camera.start_preview()
     camera.preview.resolution = PHOTO_PREVIEW_RESOLUTION
@@ -155,14 +154,11 @@ def takePicture(camera, countdown, dir, index):
     camera.stop_preview()
     camera.brightness = 50
     camera.capture(path)
-    renderImage(path)
+    image = pygame.image.load(path)
+    images.append(image)
+    screen.blit(image, (0, 0))
     pygame.display.flip()
     time.sleep(5)
-
-def renderImage(file):
-    if not file in image_cache:
-        image_cache[file] = pygame.image.load(file)
-    screen.blit(image_cache[file], (0, 0))
 
 def slideshow():
     global slideshow_running
@@ -171,13 +167,17 @@ def slideshow():
     for fname in fnames:
         group_path = os.path.join(IMG_FOLDER, fname)
         if os.path.isdir(group_path):
+            images = []
+            files = sorted(os.listdir(group_path))
+            for file in files:
+                images.append(pygame.image.load(os.path.join(group_path, file)))
             for i in range(0,2):
-                for file in sorted(os.listdir(group_path)):
+                for image in images:
                     checkEvents()
                     if not slideshow_running:
                         logging.info("Slideshow stopped")
                         return
-                    renderImage(os.path.join(group_path, file))
+                    screen.blit(image, (0, 0))
                     renderOSD()
                     pygame.display.flip()
                     time.sleep(0.5)
@@ -186,18 +186,20 @@ def slideshow():
             screen.fill((0, 0, 0))
             renderOSD()
             pygame.display.flip()
-            subprocess.call(['omxplayer','--no-osd','--no-keys','--win','350,327,1280,1024',group_path])
+            omxplayer = subprocess.Popen(['omxplayer','--no-osd','--no-keys','--win','350,327,1280,1024',group_path])
+            omxplayer.wait()
             
 def leftButton(channel):
-    global slideshow_running
+    global slideshow_running, omxplayer
     if GPIO.input(channel) or not slideshow_running:
         logging.debug("Left button cancelled")
         return;
+    slideshow_running = False
     screen.fill((0, 0, 0))
+    subprocess.call(['killall','omxplayer.bin'])
     renderVideoInstructions()
     pygame.display.flip()
     logging.info("Left button pressed")
-    slideshow_running = False
     file_name = os.path.join(IMG_FOLDER, time.strftime('%y%m%d-%H%M%S'))
     h264_file = file_name + '.h264'
     mp4_file = file_name + '.mp4'
@@ -210,6 +212,8 @@ def leftButton(channel):
         for count in range(3, 0, -1):
             camera.annotate_text = str(count)
             time.sleep(1)
+        camera.annotate_text = 'start'
+        time.sleep(0.5)
         camera.annotate_text = ''
         camera.start_recording(h264_file)
         camera.wait_recording(5)
@@ -233,11 +237,13 @@ def rightButton(channel):
         return;
     slideshow_running = False
     screen.fill((0, 0, 0))
+    subprocess.call(['killall','omxplayer.bin'])
     renderPhotoInstructions()
     pygame.display.flip()
     logging.info("Right button pressed")
     dir = time.strftime('%y%m%d-%H%M%S')
     os.mkdir(os.path.join(IMG_FOLDER, dir))
+    images = []
     with picamera.PiCamera(resolution=PHOTO_RESOLUTION) as camera:
         camera.zoom = PHOTO_ZOOM
         camera.vflip = True
@@ -247,12 +253,12 @@ def rightButton(channel):
         gains = camera.awb_gains
         camera.awb_mode = 'off'
         camera.awb_gains = gains
-        takePicture(camera, 5, dir, 1)
-        takePicture(camera, 5, dir, 2)
-        takePicture(camera, 5, dir, 3)
+        takePicture(camera, images, 5, dir, 1)
+        takePicture(camera, images, 5, dir, 2)
+        takePicture(camera, images, 5, dir, 3)
     for i in range(0,5):
-        for file in sorted(os.listdir(os.path.join(IMG_FOLDER, dir))):
-            renderImage(os.path.join(IMG_FOLDER, dir, file))
+        for image in images:
+            screen.blit(image, (0, 0))
             if i > 2:
                 renderPhotoFinished()
             pygame.display.flip()
