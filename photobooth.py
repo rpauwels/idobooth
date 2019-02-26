@@ -29,7 +29,7 @@ SUBTITLE_COLOR = (221, 221, 221)
 VIDEO_RESOLUTION = (640, 480)
 PHOTO_RESOLUTION = (1280,1024)
 PHOTO_PREVIEW_RESOLUTION = (1280,1024)
-PHOTO_ZOOM = (0.1, 0.05, 0.9, 0.9)
+PHOTO_ZOOM = (0.1, 0.15, 0.8, 0.8)
 
 GPIO.setmode(GPIO.BCM)
 GPIO.setup(L_BUTTON_PIN, GPIO.IN, pull_up_down=GPIO.PUD_UP)
@@ -182,12 +182,12 @@ def slideshow():
                     pygame.display.flip()
                     time.sleep(0.5)
                 time.sleep(0.5)
-        elif os.path.isfile(group_path):
-            screen.fill((0, 0, 0))
-            renderOSD()
-            pygame.display.flip()
-            omxplayer = subprocess.Popen(['omxplayer','--no-osd','--no-keys','--win','350,327,1280,1024',group_path])
-            omxplayer.wait()
+#        elif os.path.isfile(group_path):
+#            screen.fill((0, 0, 0))
+#            renderOSD()
+#            pygame.display.flip()
+#            omxplayer = subprocess.Popen(['omxplayer','--no-osd','--no-keys','--win','350,327,1280,1024',group_path])
+#            omxplayer.wait()
             
 def leftButton(channel):
     global slideshow_running, omxplayer
