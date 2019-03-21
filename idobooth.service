@@ -1,0 +1,13 @@
+[Unit]
+Description=idobooth wedding photobooth
+After=multi-user.target
+
+[Service]
+User=root
+WorkingDirectory=/home/raf/idobooth
+ExecStart=/home/raf/idobooth/idobooth.sh
+Restart=on-failure
+RestartSec=3
+
+[Install]
+WantedBy=multi-user.target
