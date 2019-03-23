@@ -1,4 +1,4 @@
-# ido booth #
+# idobooth #
 
 This is the software I wrote for the photo booth at our wedding. It consists of a simple Python script for the Raspberry Pi with camera and buttons.
 
